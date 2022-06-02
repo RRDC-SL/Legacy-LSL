@@ -1,0 +1,73 @@
+Collar/Cuff Inter-Attachment Protocol
+-------------------------------------
+linkrequest     -   [From: Any. To: Any] Requests one chain point link to another.
+                    linkrequest <dest-tag> <inner|outer|x> <src-tag> <inner|outer>
+                    linkrequest collarfrontloop <leash|shackle> <src-tag> <inner|outer>
+
+link            -   [From: Any. To: Collar|Cuff] Links given cuff to the object specified.
+                    link <tag> <inner|outer> <dest-uuid>
+                    link collarfrontloop <leash|shackle> <dest-uuid>
+                    
+unlink          -   [From: Any. To: Collar|Cuff] Unlinks a given cuff from whatever.
+                    unlink <tag> <inner|outer>
+                    unlink collarfrontloop <leash|shackle>
+
+settexture      -   [From: Collar. To: Cuff] Sets the metal texture of the cuff.
+                    settexture <tag> <uuid>
+
+stopposes       -   [From: Cuff. To: Collar] Tells the collar to stop playing poses.
+                    stopposes <tag>
+
+*Note: Tags follow the LockGuard schema.
+
+Collar/Cuff Leash-To Protocol
+-------------------------------------
+leashto         -   [From: Collar. To: Cuff] Requests chain point to link to object/avatar.
+                    leashto <src-tag> <inner|outer> <uuid> <dest-tag> <inner|outer>
+                    leashto <src-tag> <inner|outer> <uuid> leashanchor x
+
+ping            -   [From: Collar. To: Any] Searches for a given anchor point on an avatar.
+                    ping <dest-tag> <src-tag>
+
+pong            -   [From: Any. To: Collar] Replies to the ping message.
+                    pong <ping-tag> <my-tag>
+                    pong collarfrontloop <my-tag>
+
+stopleash       -   [From: Cuffs. To: Collar] Tells the collar to stop the leash effect.
+                    stopleash <tag>
+
+*Note: Introduces the 'leashanchor' tag for leash holders.
+
+Shock Remote Protocol
+-------------------------------------
+getmenu         -   [From: Any. To: Collar] Requests menu on behalf of the object owner.
+                    getmenu <user-key>
+
+*Note: Uses the userchan of the target avatar.
+
+Inmate Number Select/Query Protocol
+-------------------------------------
+inmatequery     -   [From: Object. To: Collar] Asks for current inmate number.
+                    inmatequery <user-key>
+
+inmatereply     -   [From: Collar. To: Object] Gives currently set inmate number.
+                    inmatereply <user-key> <inmate-number> <inmate-name>
+
+*Note: Use llRegionSay and llRegionSayTo for this protocol when possible.
+*Note2: Static channel -89039937. Collar userchan.
+
+JSON Web Protocol: (Minimum)
+------------------------------------
+Request URL: http://rrdc.xyz/json/UUID/<uuid>
+Expected Response:
+    [
+        {
+            "inmateID": "<5-digit-number>"
+        }
+    ]
+
+Request URL: http://rrdc.xyz/gear/versions/<stable|beta>
+Expected Response:
+    {
+        "collarVersion": "<semantic-version-number>"
+    }
