@@ -7,8 +7,7 @@
 
 // System Configuration Variables
 // ---------------------------------------------------------------------------------------------------------
-integer g_appAssetId  = 1;                      // The asset id for the item.
-string  g_appVersion  = "1.2.4";                // The current software version for the collar.
+string  g_appVersion  = "1.2.2";                // The current software version for the collar.
 integer g_appChan     = -89039937;              // The channel for this application set.
 
 // =========================================================================================================
@@ -63,18 +62,18 @@ list    g_curMenus;                             // Tracks current menu by user.
 // ---------------------------------------------------------------------------------------------------------
 // OR Mask       AND Mask      Variable
 // ---------------------------------------------------------------------------------------------------------
-// 0x00000001    0xFFFFFFFE    0  Toggle for anim version. 0=A, 1=B.
-// 0x00000002    0xFFFFFFFD    1  Current on/off state for the collar LED.
-// 0x00000004    0xFFFFFFFB    2  Controls whether leashLink particles are turned on.
-// 0x00000008    0xFFFFFFF7    3  Controls whether shackleLink particles are turned on.
-// 0x00000010    0xFFFFFFEF    4  Particle Mode. 0=LG/LM, 1=Intercuff/Leash.
-// 0x00000020    0xFFFFFFDF    5  TRUE when ankle chain is active.
-// 0x00000040    0xFFFFFFBF    6  TRUE when wrist to ankle shackle chains are active.
-// 0x00000080    0xFFFFFF7F    7  TRUE when the wearer is leashed to something.
-// 0x00000100    0xFFFFFEFF    8  TRUE when chain walk sounds are muted.
-// 0x00000200    0xFFFFFDFF    9  TRUE when shock cooldown is active.
-// 0x00000400    0xFFFFFBFF    10 TRUE when requestKey is a version check.
-// 0x00000800    0xFFFFF7FF    11 TRUE when version check is supposed to be verbose.
+// 0x00000001    0xFFFFFFFE    Toggle for anim version. 0=A, 1=B.
+// 0x00000002    0xFFFFFFFD    Current on/off state for the collar LED.
+// 0x00000004    0xFFFFFFFB    Controls whether leashLink particles are turned on.
+// 0x00000008    0xFFFFFFF7    Controls whether shackleLink particles are turned on.
+// 0x00000010    0xFFFFFFEF    Particle Mode. 0=LG/LM, 1=Intercuff/Leash.
+// 0x00000020    0xFFFFFFDF    TRUE when ankle chain is active.
+// 0x00000040    0xFFFFFFBF    TRUE when wrist to ankle shackle chains are active.
+// 0x00000080    0xFFFFFF7F    TRUE when the wearer is leashed to something.
+// 0x00000100    0xFFFFFEFF    TRUE when chain walk sounds are muted.
+// 0x00000200    0xFFFFFDFF    TRUE when shock cooldown is active.
+// 0x00000400    0xFFFFFBFF    TRUE when requestKey is a version check.
+// 0x00000800    0xFFFFF7FF    TRUE when version check is supposed to be verbose.
 // ---------------------------------------------------------------------------------------------------------
 integer g_settings;
 // ---------------------------------------------------------------------------------------------------------
@@ -86,46 +85,26 @@ integer getAvChannel(key av)
     return (0x80000000 | ((integer)("0x"+(string)av) ^ g_appChan));
 }
 
-// getSetting - Given an index representing how many bits from 2^0 the setting is located, returns
-//              the setting as a boolean integer.
-// --------------------------------------------------------------------------------------------------------
-integer getSetting(integer index)
+// fMin - Given two floats, returns the smallest.
+// ---------------------------------------------------------------------------------------------------------
+float fMin(float f1, float f2)
 {
-    return (((g_settings & (1 << index)) >> index) == TRUE);
+    if (f2 < f1)
+    {
+        return f2;
+    }
+    return f1;
 }
 
-// setSetting - Given an index representing how many bits from 2^0 the setting is located, sets the
-//              indicated setting to the boolean integer specified.
-// --------------------------------------------------------------------------------------------------------
-setSetting(integer index, integer setting)
+// fMax - Given two floats, returns the largest.
+// ---------------------------------------------------------------------------------------------------------
+float fMax(float f1, float f2)
 {
-    g_settings = ((g_settings & ~(1 << index)) | ((setting == TRUE) << index));
-}
-
-// fClamp - Given a number, returns number bounded by lower and upper.
-// --------------------------------------------------------------------------------------------------------
-float fClamp(float value, float lower, float upper)
-{
-    if (value < lower)
+    if (f2 > f1)
     {
-        return lower;
+        return f2;
     }
-    else if (value > upper)
-    {
-        return upper;
-    }
-    return value;
-}
-
-// strIf - If condition is TRUE, returns sTrue, otherwise returns sFalse.
-// --------------------------------------------------------------------------------------------------------
-string strIf(integer condition, string sTrue, string sFalse)
-{
-    if (condition)
-    {
-        return sTrue;
-    }
-    return sFalse;
+    return f1;
 }
 
 // inRange - Returns TRUE if the object is less than 6m from our position.
@@ -139,54 +118,69 @@ integer inRange(key object)
 // ---------------------------------------------------------------------------------------------------------
 versionCheck(integer verbose)
 {
-    setSetting(11, verbose);
-    setSetting(10, TRUE); // Set request type flag.
-
-    g_requestKey = llHTTPRequest("https://back.rrdc.xyz/miscapi.php", [HTTP_METHOD, "POST"], 
-        "mode=vercheck&tuuid=" + (string)llGetOwner() +
-        "&asset=" + (string)g_appAssetId + 
-        "&ver=" + (string)g_appVersion);
+    if (verbose)
+    {
+        g_settings = (g_settings | 0x00000800);
+    }
+    else
+    {
+        g_settings = (g_settings & 0xFFFFF7FF);
+    }
+    
+    g_settings = (g_settings | 0x00000400); // Set request type flag.
+    g_requestKey = llHTTPRequest("https://rrdc.xyz/gear/versions/stable", [], "");
 }
 
 // playRandomSound - Plays a random chain sound.
 // ---------------------------------------------------------------------------------------------------------
-playRandomSound(integer play)
+playRandomSound()
 {
-    if (play || (!getSetting(8) && (g_animList != [] || getSetting(5) || getSetting(6) || getSetting(7))))
+    llPlaySound(llList2String([ "f729d711-085e-f899-a723-a4afefd6a7d0", // ChainStep001.
+                                "1f08a669-11ac-96e0-0435-419d2ae01254", // ChainStep002.
+                                "9da21f36-14b1-9e79-3363-fc9d241628ba", // ChainStep003.
+                                "35154062-4f0d-a489-35d3-696d8004b0cc", // ChainStep004.
+                                "93ce44ed-014d-6e58-9d7b-1c9c5242ac6c"  // ChainStep005.
+                              ], 
+                              (integer)llFrand(5)), 0.2
+    );
+}
+
+// getAnimVersion - Given a toggle state, returns the anim version as a string.
+// ---------------------------------------------------------------------------------------------------------
+string getAnimVersion(integer toggle)
+{
+    if (toggle)
     {
-        llPlaySound(llList2String([ "f729d711-085e-f899-a723-a4afefd6a7d0", // ChainStep001.
-                                    "1f08a669-11ac-96e0-0435-419d2ae01254", // ChainStep002.
-                                    "9da21f36-14b1-9e79-3363-fc9d241628ba", // ChainStep003.
-                                    "35154062-4f0d-a489-35d3-696d8004b0cc", // ChainStep004.
-                                    "93ce44ed-014d-6e58-9d7b-1c9c5242ac6c"  // ChainStep005.
-                                ], 
-                                (integer)llFrand(5)), 0.2);
+        return "b";
     }
+    return "a";
 }
 
 // doAnimationOverride - Toggles or switches the persistent AO feature.
 // ---------------------------------------------------------------------------------------------------------
 doAnimationOverride(integer on)
 {
-    if (g_animList != []) // Activate or swap animations for persistent AO.
+    integer i;
+    if (!on) // Stop all AO anims that are playing.
     {
-        setSetting(!getSetting(0)); // Toggle anim version.
-
-        integer i;
+        llSetTimerEvent(0.0); // Stop timer, then anims.
         for (i = 0; i < llGetListLength(g_animList); i++)
         {
-            if (on) // Start new versions if on.
-            {
-                llStartAnimation(llList2String(g_animList, i) + strIf(getSetting(0), "a", "b"));
-            }
-
-            llStopAnimation(llList2String(g_animList, i) + strIf(!getSetting(0), "a", "b"));
+            llStopAnimation(llList2String(g_animList, i) + getAnimVersion((g_settings & 0x00000001)));
         }
+        g_animList = [];
+        llSetTimerEvent(0.2); // Restart timer.
 
-        if (!on) // Reset list if turned off.
+        playRandomSound();
+    }
+    else if (g_animList != []) // Activate or swap animations for persistent AO.
+    {
+        g_settings = (g_settings ^ 0x00000001);
+
+        for (i = 0; i < llGetListLength(g_animList); i++)
         {
-            g_animList = [];
-            playRandomSound(TRUE);
+            llStartAnimation(llList2String(g_animList, i) + getAnimVersion((g_settings & 0x00000001)));
+            llStopAnimation(llList2String(g_animList, i) + getAnimVersion(!(g_settings & 0x00000001)));
         }
     }
 }
@@ -195,12 +189,12 @@ doAnimationOverride(integer on)
 // ---------------------------------------------------------------------------------------------------------
 leashParticles(integer on)
 {
-    setSetting(2, on); // Set particle state.
+    g_settings = ((g_settings & 0xFFFFFFFB) | (on << 2)); // Save the state we passed in.
 
     if(!on) // If LG particles should be turned off, turn them off and reset defaults.
     {
         llLinkParticleSystem(g_leashLink, []); // Stop particle system and clear target.
-        g_leashPartTarget = NULL_KEY;
+        g_leashPartTarget   = NULL_KEY;
     }
     else // If LG particles are to be turned on, turn them on.
     {
@@ -228,7 +222,7 @@ leashParticles(integer on)
 // ---------------------------------------------------------------------------------------------------------
 shackleParticles(integer on)
 {
-    setSetting(3, on); // Save particle state.
+    g_settings = ((g_settings & 0xFFFFFFF7) | (on << 3)); // Save the state we passed in.
 
     if (!on) // Turn inner particle system off.
     {
@@ -274,7 +268,7 @@ resetParticles()
 // ---------------------------------------------------------------------------------------------------------
 resetLeash()
 {
-    if (getSetting(7)) // If we're leashed.
+    if ((g_settings & 0x00000080)) // If we're leashed.
     {
         llStopMoveToTarget(); // Stop follow effect.
         llTargetRemove(g_followHandle);
@@ -288,7 +282,7 @@ resetLeash()
         g_leashMode         = "";
         g_avList            = [];
         g_pingCount         = 0;
-        setSetting(7, FALSE);
+        g_settings          = (g_settings & 0xFFFFFF7F);
     }
 }
 
@@ -296,7 +290,7 @@ resetLeash()
 // ---------------------------------------------------------------------------------------------------------
 leashFollow(integer atTarget)
 {
-    if (getSetting(7) && g_leashPartTarget != NULL_KEY) // We actually leashed to something?
+    if ((g_settings & 0x00000080) && g_leashPartTarget != NULL_KEY) // We actually leashed to something?
     {
         vector newPos = llList2Vector( // Get the target's owner's position.
             llGetObjectDetails(llGetOwnerKey(g_leashPartTarget), [OBJECT_POS]), 0
@@ -332,18 +326,17 @@ leashFollow(integer atTarget)
 // ---------------------------------------------------------------------------------------------------------
 toggleMode(integer mode)
 {
-    if ((getSetting(4) && TRUE) != mode) // If the mode actually changed.
+    if (((g_settings & 0x00000010) && TRUE) != mode) // If the mode actually changed.
     {
         shackleParticles(FALSE); // Clear all particles.
         leashParticles(FALSE);
         resetParticles();
         resetLeash();
 
-        setSetting(4, mode); // Toggle mode.
+        g_settings = ((g_settings & 0xFFFFFFEF) | (mode << 4)); // Toggle mode.
     }
 }
 
-// TODO: syncInmateInfo() to replace updateInmateInfo.
 // updateInmateInfo - Sets inmate info or defaults if not present.
 // ---------------------------------------------------------------------------------------------------------
 updateInmateInfo(string inmateNum, string inmateName)
@@ -383,7 +376,6 @@ updateInmateInfo(string inmateNum, string inmateName)
     ]);
 }
 
-// TODO: Update to use the website profile links.
 // giveCharSheet - Gives a copy of the character sheet to the user, if present.
 // ---------------------------------------------------------------------------------------------------------
 giveCharSheet(key user)
@@ -485,7 +477,7 @@ showMenu(string menu, key user)
             buttons = ["☎ Reports", "✖ Close"];
         }
 
-        if (getSetting(7) && g_leashMode == "leashanchor") // Leash toggle.
+        if ((g_settings & 0x00000080) && g_leashMode == "leashanchor") // Leash toggle.
         {
             buttons = ["☒ Leash"] + buttons;
         }
@@ -494,7 +486,7 @@ showMenu(string menu, key user)
             buttons = ["☐ Leash"] + buttons;
         }
 
-        if (getSetting(7) && g_leashMode == "leftankle") // Chain gang toggle.
+        if ((g_settings & 0x00000080) && g_leashMode == "leftankle") // Chain gang toggle.
         {
             buttons += ["☒ ChainGang"];
         }
@@ -503,7 +495,7 @@ showMenu(string menu, key user)
             buttons += ["☐ ChainGang"];
         }
 
-        if (getSetting(5)) // Ankle chain toggle.
+        if ((g_settings & 0x00000020)) // Ankle chain toggle.
         {
             buttons += ["☒ AnkleChain"];
         }
@@ -512,7 +504,7 @@ showMenu(string menu, key user)
             buttons += ["☐ AnkleChain"];
         }
 
-        if (getSetting(6)) // Shackle link toggle.
+        if ((g_settings & 0x00000040)) // Shackle link toggle.
         {
             buttons += ["☒ Shackles"];
         }
@@ -534,7 +526,7 @@ showMenu(string menu, key user)
         buttons = [" ", " ", "↺ Main", "✎ CharName", "★ Version", "☎ Reports",
                    "📜 InmateID", "📜 Textures"];
 
-        if (!getSetting(8))
+        if (!(g_settings & 0x00000100))
         {
             buttons += ["☒ WalkSound"];
         }
@@ -600,19 +592,20 @@ default
                 }
             }
 
-            if (g_shackleLink <= 0 || g_leashLink <= 0)
-            {
-                llOwnerSay("FATAL: Missing chain emitters!");
-                return;
-            }
-
             // Quick and stupid way to make walk sounds settings persist through resets.
-            setSetting(8, (integer)llList2String(llGetLinkPrimitiveParams(g_shackleLink, [PRIM_DESC]), 0));
+            i = (integer)llList2String(llGetLinkPrimitiveParams(g_shackleLink, [PRIM_DESC]), 0);
+            g_settings = ((g_settings & 0xFFFFFEFF) | (i << 8)); // Save the state we passed in.
             llSetLinkPrimitiveParamsFast(g_shackleLink, [PRIM_DESC, (string)i]);
 
             updateInmateInfo("", ""); // Update inmate info from link description.
 
             llMinEventDelay(0.2); // Slow events to reduce lag.
+
+            if (g_shackleLink <= 0 || g_leashLink <= 0)
+            {
+                llOwnerSay("FATAL: Missing chain emitters!");
+                return;
+            }
 
             resetParticles();
             shackleParticles(FALSE); // Stop any particle effects and init.
@@ -674,7 +667,7 @@ default
                         {
                             shackleParticles(FALSE);
                         }
-                        else if (getSetting(4)) // Leash.
+                        else if ((g_settings & 0x00000010)) // Leash.
                         {
                             resetParticles();
                             leashParticles(FALSE);
@@ -781,7 +774,7 @@ default
                 // ---------------------------------------------------------------------------------------------
                 else if (mesg == "☠ Shock") // Shock feature.
                 {
-                    if (getSetting(9))
+                    if ((g_settings & 0x00000200))
                     {
                         llInstantMessage(id, "The shock collar's capacitors are still recharging. " +
                             "Please try again in a moment.");
@@ -816,8 +809,7 @@ default
                 // ---------------------------------------------------------------------------------------------
                 else if (mesg == "☐ AnkleChain" || mesg == "☒ AnkleChain") // Toggle chain between ankles.
                 {
-                    setSetting(5, !getSetting(5));
-                    if (getSetting(5))
+                    if ((g_settings = (g_settings ^ 0x00000020)) & 0x00000020)
                     {
                         llOwnerSay("secondlife:///app/agent/" + ((string)id) + "/completename" +
                             " attached your ankle chain.");
@@ -831,14 +823,13 @@ default
 
                         llWhisper(getAvChannel(llGetOwner()), "unlink leftankle inner");
                     }
-                    playRandomSound(TRUE);
+                    playRandomSound();
                 }
                 // Shackle Link Toggle.
                 // ---------------------------------------------------------------------------------------------
                 else if (mesg == "☐ Shackles" || mesg == "☒ Shackles") // Chains from wrists to ankles.
                 {
-                    setSetting(6, !getSetting(6));
-                    if (getSetting(6))
+                    if ((g_settings = (g_settings ^ 0x00000040)) & 0x00000040)
                     {
                         llOwnerSay("secondlife:///app/agent/" + ((string)id) + "/completename" +
                             " attached your shackle links.");
@@ -854,7 +845,7 @@ default
                         llWhisper(getAvChannel(llGetOwner()), "unlink leftwrist outer");
                         llWhisper(getAvChannel(llGetOwner()), "unlink rightwrist outer");
                     }
-                    playRandomSound(TRUE);
+                    playRandomSound();
                 }
                 // Leash Commands.
                 // ---------------------------------------------------------------------------------------------
@@ -864,17 +855,17 @@ default
                     {
                         llInstantMessage(id, "No matter where you go, there you are.");
                     }
-                    else if (getSetting(7) && g_leashMode == "leashanchor") // Turn off leash.
+                    else if ((g_settings & 0x00000080) && g_leashMode == "leashanchor") // Turn off leash.
                     {
                         llOwnerSay("secondlife:///app/agent/" + ((string)id) + "/completename" +
                             " removed your leash.");
 
                         resetLeash();
-                        playRandomSound(TRUE);
+                        playRandomSound();
                     }
                     else // Grab leash.
                     {
-                        if (getSetting(7)) // Switch to leash from chain gang.
+                        if ((g_settings & 0x00000080)) // Switch to leash from chain gang.
                         {
                             resetLeash();
                         }
@@ -884,7 +875,7 @@ default
                     
                         toggleMode(TRUE);
 
-                        setSetting(7, TRUE);
+                        g_settings        = (g_settings | 0x00000080);
                         g_leashMode       = "leashanchor";
                         g_leashPartTarget = (string)id;
                         g_partLife     = 2.4;
@@ -893,24 +884,24 @@ default
                         llWhisper(getAvChannel(id), "linkrequest leashanchor x collarfrontloop leash");
                         leashParticles(TRUE);
                         leashFollow(FALSE); // Start follow effect on id.
-                        playRandomSound(TRUE);
+                        playRandomSound();
                     }
                 }
                 // Chain Gang Commands.
                 // ---------------------------------------------------------------------------------------------
                 else if (mesg == "☐ ChainGang" || mesg == "☒ ChainGang")
                 {
-                    if (getSetting(7) && g_leashMode == "leftankle") // Turn off chain gang.
+                    if ((g_settings & 0x00000080) && g_leashMode == "leftankle") // Turn off chain gang.
                     {
                         llOwnerSay("secondlife:///app/agent/" + ((string)id) + "/completename" +
                             " removed you from the chain gang.");
 
                         resetLeash();
-                        playRandomSound(TRUE);
+                        playRandomSound();
                     }
                     else // Poll for Chain Gang.
                     {
-                        if (getSetting(7)) // Switch to chain gang from leash.
+                        if ((g_settings & 0x00000080)) // Switch to chain gang from leash.
                         {
                             resetLeash();
                         }
@@ -944,7 +935,7 @@ default
                     g_avList          = [];
                     g_leashUser       = "";
                     g_pingCount       = 0;
-                    setSetting(7, TRUE);
+                    g_settings        = (g_settings | 0x00000080);
                     g_leashPartTarget = name;
 
                     llWhisper(getAvChannel(llGetOwner()), "leashto leftankle outer " +
@@ -952,7 +943,7 @@ default
                     );
 
                     leashFollow(FALSE); // Start follow effect on id.
-                    playRandomSound(TRUE);
+                    playRandomSound();
                 }
                 // Pose Commands.
                 // ---------------------------------------------------------------------------------------------
@@ -1021,7 +1012,7 @@ default
                     }
                     else if (mesg == "📜 InmateID") // Inmate number select.
                     {
-                        setSetting(10, FALSE); // Unset request type flag.
+                        g_settings = (g_settings & 0xFFFFFBFF); // Unset request type flag.
                         g_requestKey = llHTTPRequest("https://rrdc.xyz/json/UUID/" + (string)llGetOwner(), [], "");
                         return;
                     }
@@ -1107,9 +1098,9 @@ default
                     // -----------------------------------------------------------------------------------------
                     else if (mesg == "☐ WalkSound" || mesg == "☒ WalkSound" ) // Turn chain walk sounds on/off.
                     {
-                        setSetting(8, !getSetting(8));
+                        g_settings = (g_settings ^ 0x00000100);
                         llSetLinkPrimitiveParamsFast(g_shackleLink, 
-                            [PRIM_DESC, (string)getSetting(8)]);
+                            [PRIM_DESC, (string)((g_settings & 0x00000100) && TRUE)]);
                     }
                     // Set Inmate Number.
                     // -----------------------------------------------------------------------------------------
@@ -1168,7 +1159,7 @@ default
                         leashParticles(TRUE);
                         i += 2;
                     }
-                    else if(name == "unlink" && !getSetting(4)) // If in LM/LG mode.
+                    else if(name == "unlink" && !(g_settings & 0x00000010)) // If in LM/LG mode.
                     {
                         resetParticles();
                         leashParticles(FALSE);
@@ -1178,13 +1169,13 @@ default
                     else if(name == "gravity")
                     {
                         toggleMode(FALSE);
-                        g_partGravity = fClamp(llList2Float(tList, (i + 1)), 0.0, 100.0);
+                        g_partGravity = fMax(0.0, fMin(llList2Float(tList, (i + 1)), 100.0));
                         i += 2;
                     }
                     else if(name == "life")
                     {
                         toggleMode(FALSE);
-                        g_partLife = fClamp(llList2Float(tList, (i + 1)), 0.0, 30.0);
+                        g_partLife = fMax(0.0, llList2Float(tList, (i + 1)));
                         i += 2;
                     }
                     else if(name == "texture")
@@ -1200,7 +1191,7 @@ default
                     else if(name == "rate")
                     {
                         toggleMode(FALSE);
-                        g_partRate = fClamp(llList2Float(tList, (i + 1)), 0.0, 60.0);
+                        g_partRate = fMax(0.0, llList2Float(tList, (i + 1)));
                         i += 2;
                     }
                     else if(name == "follow")
@@ -1212,16 +1203,16 @@ default
                     else if(name == "size")
                     {
                         toggleMode(FALSE);
-                        g_partSizeX = fClamp(llList2Float(tList, (i + 1)), 0.03125, 4.0);
-                        g_partSizeY = fClamp(llList2Float(tList, (i + 2)), 0.03125, 4.0);
+                        g_partSizeX = fMax(0.03125, fMin(llList2Float(tList, (i + 1)), 4.0));
+                        g_partSizeY = fMax(0.03125, fMin(llList2Float(tList, (i + 2)), 4.0));
                         i += 3;
                     }
                     else if(name == "color")
                     {
                         toggleMode(FALSE);
-                        g_partColor.x = fClamp(llList2Float(tList, (i + 1)), 0.0, 1.0);
-                        g_partColor.y = fClamp(llList2Float(tList, (i + 2)), 0.0, 1.0);
-                        g_partColor.z = fClamp(llList2Float(tList, (i + 3)), 0.0, 1.0);
+                        g_partColor.x = fMax(0.0, fMin(llList2Float(tList, (i + 1)), 1.0));
+                        g_partColor.y = fMax(0.0, fMin(llList2Float(tList, (i + 2)), 1.0));
+                        g_partColor.z = fMax(0.0, fMin(llList2Float(tList, (i + 3)), 1.0));
                         i += 4;
                     }
                     else if(name == "ping")
@@ -1233,7 +1224,7 @@ default
                     }
                     else if(name == "free")
                     {
-                        if(getSetting(2))
+                        if((g_settings & 0x00000004))
                         {
                             llRegionSayTo(id, -9119, "lockguard " + ((string)llGetOwner()) + " " + 
                                 "collarfrontloop no"
@@ -1253,7 +1244,7 @@ default
                     }
                 }
                 
-                leashParticles(getSetting(2)); // Refresh particles.
+                leashParticles((g_settings & 0x00000004)); // Refresh particles.
             }
         }
     }
@@ -1266,7 +1257,7 @@ default
         {
             body = llStringTrim(body, STRING_TRIM); // Trim and parse the response.
 
-            if (getSetting(10)) // Is it a version check response?
+            if ((g_settings & 0x00000400)) // Is it a version check response?
             {
                 string v = llJsonGetValue(body, ["collarVersion"]);
                 if (v == JSON_INVALID || v == JSON_NULL)
@@ -1278,7 +1269,7 @@ default
                     stat = (g_appVersion == llList2String(llListSort([g_appVersion, v], 1, TRUE), 0) &&
                             g_appVersion != v);
 
-                    if (getSetting(11) || stat) // Verbose or update required?
+                    if ((g_settings & 0x00000800) || stat) // Verbose or update required?
                     {
                         llOwnerSay("Current Version: " + g_appVersion + " Latest version: " + v);
 
@@ -1354,7 +1345,7 @@ default
         else if (g_shockCount == 1) // Release controls when the anim is done.
         {
             g_shockCount = -76;                       // 15 seconds timer.
-            setSetting(9, TRUE); // Set cooldown bit.
+            g_settings   = (g_settings | 0x00000200); // Set cooldown bit.
 
             llTakeControls(
                             CONTROL_FWD |
@@ -1372,7 +1363,7 @@ default
         }
         else if (g_shockCount == -1) // Release cooldown.
         {
-            setSetting(9, FALSE);
+            g_settings   = (g_settings & 0xFFFFFDFF);
             g_shockCount = 0;
         }
         else if (g_shockCount < 0) // Cooldown wait.
@@ -1409,7 +1400,7 @@ default
         {
             g_pingCount--;
         }
-        else if (g_pingCount == -1 && !getSetting(7)) // To clear the leash user.
+        else if (g_pingCount == -1 && !(g_settings & 0x00000080)) // To clear the leash user.
         {
             llInstantMessage(g_leashUser, "Inmate selection menu has expired.");
             g_leashUser = "";
@@ -1424,8 +1415,7 @@ default
         // -----------------------------------------------------------------------------------------------------
         if (g_ledCount++ >= 4)
         {
-            setSetting(1, !getSetting(1));
-            if (getSetting(1)) 
+            if ((g_settings = (g_settings ^ 0x00000002)) & 0x00000002) 
             {
                 llSetLinkPrimitiveParamsFast(g_ledLink, [
                     PRIM_COLOR, ALL_SIDES, <0.3, 0.0, 0.0>, llGetAlpha(0), 
@@ -1464,12 +1454,20 @@ default
     // ---------------------------------------------------------------------------------------------------------
     moving_start()
     {
-        playRandomSound(FALSE);
+        if (!(g_settings & 0x00000100) && (g_animList != [] || (g_settings & 0x00000020) ||
+            (g_settings & 0x00000040) || (g_settings & 0x00000080)))
+        {
+            playRandomSound();
+        }
     }
 
     moving_end()
     {
-        playRandomSound(FALSE);
+        if (!(g_settings & 0x00000100) && (g_animList != [] || (g_settings & 0x00000020) ||
+            (g_settings & 0x00000040) || (g_settings & 0x00000080)))
+        {
+            playRandomSound();
+        }
     }
 
     // Tells the leash follow system whether the avatar needs to move or not.
